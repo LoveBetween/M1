@@ -13,7 +13,6 @@ set_start_method('fork')
 def p_lecteur(lId, messages, info, nbL, semNbL):
     while True:
         with semNbL:
-            
             nbL.value+=1
             if nbL.value == 1:
                 info.acquire()
@@ -38,7 +37,7 @@ def p_redacteur(messages, info, nbL, semNbL):
 
 
 if __name__ == '__main__':
-    MAX = 2
+    MAX = 4
 
     shm = shared_memory.SharedMemory(create=True, size=(MAX*1024))
     messages=np.ndarray((MAX,), dtype='|S1024', buffer=shm.buf)
@@ -48,17 +47,17 @@ if __name__ == '__main__':
     nbL = Value('l', 0)
     semNbL = Semaphore(1)
 
-    lecteur0 = Process(target=p_lecteur, args=(0, messages, info, nbL, semNbL)) 
-    lecteur1 = Process(target=p_lecteur, args=(1, messages, info, nbL, semNbL))  
-      
-    
-    lecteur0.start()
-    lecteur1.start()
+    l_lecteurs = []
+
+    for i in range(0, MAX):
+        lecteur = Process(target=p_lecteur, args=(i, messages, info, nbL, semNbL))
+        l_lecteurs.append(lecteur)
+        lecteur.start()
 
     p_redacteur(messages, info, nbL, semNbL)
     
-    lecteur0.join()
-    lecteur1.join()
+    for lecteur in l_lecteurs:
+        lecteur.join()
 
     shm.close()
     shm.unlink()
